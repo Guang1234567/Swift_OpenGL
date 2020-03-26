@@ -1,0 +1,5 @@
+module C_EGL_Android [system] {
+  umbrella header "include/Bridging-Header.h"
+  link "EGL"
+  export *
+}

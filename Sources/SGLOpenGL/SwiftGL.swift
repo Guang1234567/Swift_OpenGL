@@ -173,7 +173,33 @@ func getAddress(_ info: CommandInfo) -> UnsafeMutableRawPointer {
         }
         return glXGetProcAddress!(info.name)
     }
-    
+
+#elseif os(Android)
+
+import Glibc
+
+var dlopenHandle: UnsafeMutableRawPointer?
+var eglGetProcAddress:(@convention(c) (UnsafePointer<GLchar>) -> UnsafeMutableRawPointer)? = nil
+
+func lookupAddress(info: CommandInfo) -> UnsafeMutableRawPointer? {
+    if dlopenHandle == nil {
+        dlopenHandle = dlopen(nil, RTLD_LAZY | RTLD_LOCAL)
+    }
+    if dlopenHandle == nil {
+        fatalError("Failed to obtain dlopenHandle")
+    }
+    if eglGetProcAddress == nil {
+        let fp = dlsym(dlopenHandle, "eglGetProcAddress")
+        if fp != nil {
+            eglGetProcAddress = unsafeBitCast(fp, to: type(of: eglGetProcAddress))
+        }
+    }
+    if eglGetProcAddress == nil {
+        fatalError("Failed to find eglGetProcAddress")
+    }
+    return eglGetProcAddress!(info.name)
+}
+
 #else
 
     func lookupAddress(info: commandInfo) -> UnsafeMutableRawPointer? {

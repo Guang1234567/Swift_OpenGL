@@ -43,15 +43,8 @@ extension OutputStream
     }
 }
 
-enum API: String {
-    case GL = "gl"
-    case GLES1 = "gles1"
-    case GLES2 = "gles2"
-}
-
 class KhronosXmlDelegate : NSObject, XMLParserDelegate
 {
-    let mApi: API;
 
     var path = ""
 
@@ -88,10 +81,6 @@ class KhronosXmlDelegate : NSObject, XMLParserDelegate
     var currentExtensionSupported = Array<String>()
     var commandExtensionEnums = [String: [String]]()
 
-    init(api: API) {
-        self.mApi = api
-    }
-
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String])
     {
         if (elementName == "registry") {return}
@@ -106,15 +95,12 @@ class KhronosXmlDelegate : NSObject, XMLParserDelegate
                         return "\(item)"
                     }
             currentExtension = attributeDict["name"]!
-            assert(currentExtension.hasPrefix("GL_"))
-            currentExtension.removeSubrange(currentExtension.startIndex..<currentExtension.index(currentExtension.startIndex, offsetBy: 3))
+            assert(currentExtension.hasPrefix("EGL_"))
+            currentExtension.removeSubrange(currentExtension.startIndex..<currentExtension.index(currentExtension.startIndex, offsetBy: 4))
             return
         }
 
         if path == "extensions.extension.require.command" {
-            guard currentExtensionSupported.contains(mApi.rawValue) else {
-                return
-            }
 
             let name = attributeDict["name"]!
             if commandExtensions[name] == nil {
@@ -126,9 +112,6 @@ class KhronosXmlDelegate : NSObject, XMLParserDelegate
         }
 
         if path == "extensions.extension.require.enum" {
-            guard currentExtensionSupported.contains(mApi.rawValue) else {
-                return
-            }
 
             let name = attributeDict["name"]!
             if commandExtensionEnums[name] == nil {
@@ -145,10 +128,8 @@ class KhronosXmlDelegate : NSObject, XMLParserDelegate
             commandApiSupported = apiAttr
 
             switch(apiAttr) {
-            case "gl":
+            case "egl":
                 currentVersion = ""
-            case "gles1", "gles2":
-                currentVersion = "ES "
             default:
                 assert(false)
             }
@@ -157,9 +138,6 @@ class KhronosXmlDelegate : NSObject, XMLParserDelegate
         }
 
         if path == "feature.require.command" {
-            guard mApi.rawValue == commandApiSupported.lowercased() else {
-                return
-            }
 
             let name = attributeDict["name"]!
             if commandVersions[name] == nil {
@@ -171,18 +149,12 @@ class KhronosXmlDelegate : NSObject, XMLParserDelegate
         }
 
         if path == "feature.remove.command" {
-            guard mApi.rawValue == commandApiSupported.lowercased() else {
-                return
-            }
 
             commandVersions[attributeDict["name"]!]?.append("-\(currentVersion)")
             return
         }
 
         if path == "feature.require.enum" {
-            guard mApi.rawValue == commandApiSupported.lowercased() else {
-                return
-            }
 
             let name = attributeDict["name"]!
             if commandEnumVersions[name] == nil {
@@ -194,9 +166,6 @@ class KhronosXmlDelegate : NSObject, XMLParserDelegate
         }
 
         if path == "feature.remove.enum" {
-            guard mApi.rawValue == commandApiSupported.lowercased() else {
-                return
-            }
 
             commandEnumVersions[attributeDict["name"]!]?.append("-\(currentVersion)")
             return
@@ -429,20 +398,17 @@ func writeConstants(outstream:OutputStream, _ delegate:KhronosXmlDelegate)
     writeLicense(outstream: outstream)
     outstream.write("// GLenum constants\n")
     for key in delegate.enums {
-        guard delegate.commandEnumVersions[key] != nil || delegate.commandExtensionEnums[key] != nil else {
-            continue
-        }
 
         let value = delegate.values[key]!
         if value.hasPrefix("-") {
-            outstream.write("public let \(key) = GLint(0)&\(value)\n")
+            outstream.write("public let \(key) = EGLint(0)&\(value)\n")
         } else {
-            outstream.write("public let \(key) = GLint(\(value))\n")
+            outstream.write("public let \(key) = EGLint(\(value))\n")
         }
     }
     outstream.write("\n// GLbitfield constants\n")
     for key in delegate.bitfields {
-        let s = "public let \(key) = GLuint(\(delegate.values[key]!))\n"
+        let s = "public let \(key) = EGLint(\(delegate.values[key]!))\n"
         outstream.write(s)
     }
 }
@@ -476,7 +442,12 @@ func paramType(x:KhronosXmlDelegate.paramTuple) -> String
         type = "UnsafeMutablePointer<UnsafeMutableRawPointer>?"
     } else if x.ptr == "constvoid*const*?" {
         type = "UnsafePointer<UnsafeRawPointer>?"
+    } else if x.ptr == "int*?" {
+        type = "UnsafeMutablePointer<EGLint>?"
+    } else if x.ptr == "constchar*?" {
+        type = "UnsafePointer<EGLchar>?"
     }
+
     // Helper to find new pointer types
     // else if x.ptr != "!?" {
     //     print("\(cmd) \(count) \(x.ptr)")
@@ -496,14 +467,15 @@ func returnType(_ cmd: String, _ delegate:KhronosXmlDelegate) -> String
         return "UnsafeMutableRawPointer"
     } else if retValue == "GLubyte*" {
         return "UnsafePointer<GLubyte>"
+    } else if retValue == "wl_buffer*" {
+        return "UnsafePointer<wl_buffer>"
+    } else if retValue == "char *" {
+        return "UnsafeMutablePointer<EGLchar>?"
+    } else if retValue == "const char *" {
+        return "UnsafePointer<EGLchar>?"
     } else {
         return retValue
     }
-}
-
-
-private func fliterNotTargetGLApi(delegate: KhronosXmlDelegate, cmd: String) -> Bool {
-    delegate.commandVersions[cmd] != nil || delegate.commandExtensions[cmd] != nil
 }
 
 func writeCommands(outstream:OutputStream, _ delegate:KhronosXmlDelegate)
@@ -511,9 +483,6 @@ func writeCommands(outstream:OutputStream, _ delegate:KhronosXmlDelegate)
     var count:Int
     writeLicense(outstream: outstream)
     for cmd in delegate.commands {
-        guard fliterNotTargetGLApi(delegate: delegate, cmd: cmd) else {
-            continue
-        }
 
         let params = delegate.commandParams[cmd]!
 
@@ -606,9 +575,6 @@ func writeLoaders(outstream:OutputStream, _ delegate:KhronosXmlDelegate)
     outstream.write("\n")
     index = 0
     for cmd in delegate.commands {
-        guard fliterNotTargetGLApi(delegate: delegate, cmd: cmd) else {
-            continue
-        }
 
         let params = delegate.commandParams[cmd]!
 
@@ -775,20 +741,19 @@ func saneDelegate(delegate:KhronosXmlDelegate)
 }
 
 
-if (CommandLine.argc < 2) {
+if (CommandLine.argc < 1) {
     // Got this from Xcode? Add $(SRCROOT)/OpenGL to arguments in scheme.
-    print("\nusage: main.swift path_to_root [gl|gles1|gles2]\n")
-    print("\n\t./.build/x86_64-apple-macosx/debug/glgen . [gl|gles1|gles2]\n")
+    print("\nusage: main.swift path_to_root\n")
+    print("\n\t./.build/x86_64-apple-macosx/debug/eglgen .\n")
     exit(1)
 }
 let pathPrefix = CommandLine.arguments[1]
-let api = CommandLine.arguments[2].lowercased()
-var khronosDelegate = KhronosXmlDelegate(api: API(rawValue: api) ?? API.GL)
+var khronosDelegate = KhronosXmlDelegate()
 print("Working...")
-chomper(delegate: khronosDelegate, pathPrefix + "/Data/gl.xml")
+chomper(delegate: khronosDelegate, pathPrefix + "/Data/egl.xml")
 tidyDelegate(delegate: khronosDelegate)
-saneDelegate(delegate: khronosDelegate)
-spitter(khronosDelegate, pathPrefix + "/Sources/SGLOpenGL/Constants.swift", writeConstants)
-spitter(khronosDelegate, pathPrefix + "/Sources/SGLOpenGL/Commands.swift", writeCommands)
-spitter(khronosDelegate, pathPrefix + "/Sources/SGLOpenGL/Loaders.swift", writeLoaders)
+//saneDelegate(delegate: khronosDelegate)
+spitter(khronosDelegate, pathPrefix + "/Sources/SGLEGL/Constants.swift", writeConstants)
+spitter(khronosDelegate, pathPrefix + "/Sources/SGLEGL/Commands.swift", writeCommands)
+spitter(khronosDelegate, pathPrefix + "/Sources/SGLEGL/Loaders.swift", writeLoaders)
 print("Success")
