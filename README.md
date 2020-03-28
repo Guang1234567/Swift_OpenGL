@@ -16,6 +16,14 @@ Support for generation only `egl` API.
 
 But only under test on Android Platform.
 
+- Examples
+
+Android EGL&OpenGLES App Example that using this repo is [here](https://github.com/Guang1234567/Swift_Android_Glue/blob/cca9d2e0a3571e9cb4ed4497d4de187f91c719c8/Examples/Android/native-activity/app/src/main/swift/Sources/native-activity/native-activity.swift#L12-L199)
+
+
+https://github.com/Guang1234567/Swift_Android_Glue/blob/cca9d2e0a3571e9cb4ed4497d4de187f91c719c8/Examples/Android/native-activity/app/src/main/swift/Sources/native-activity/native-activity.swift#L12-L199
+
+
 ------------
 
 # SwiftGL OpenGL
@@ -24,7 +32,7 @@ To use, include dependency in your `Package.swift`:
 ```swift
 let package = Package(
     dependencies: [
-        .Package(url: "https://github.com/SwiftGL/OpenGL.git", majorVersion: 3)
+        .package(url: "https://github.com/Guang1234567/Swift_OpenGL.git", .branch("gles32_egl15_android"))
     ]
 )
 ```
