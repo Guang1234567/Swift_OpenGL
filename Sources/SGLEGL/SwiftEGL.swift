@@ -21,7 +21,7 @@
 // MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 
-public typealias EGLVoidPointer = Int
+public typealias EGLVoidPointer = UnsafeMutableRawPointer?
 
 #if os(Android)
 
