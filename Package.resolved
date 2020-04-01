@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "SGLImage",
+        "repositoryURL": "https://github.com/Guang1234567/SGLImage.git",
+        "state": {
+          "branch": "master",
+          "revision": "2b9ed3a2d128e82b506b0fde82627c98de916bd2",
+          "version": null
+        }
+      },
+      {
+        "package": "SGLMath",
+        "repositoryURL": "https://github.com/Guang1234567/SGLMath.git",
+        "state": {
+          "branch": "master",
+          "revision": "879d69061d2f3d2a2b3cd4ba9a0ba862f43030e1",
+          "version": null
+        }
+      }
+    ]
+  },
+  "version": 1
+}

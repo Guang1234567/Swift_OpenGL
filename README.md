@@ -1,5 +1,83 @@
 # My Changed
 
+## 2020-03-31
+
+- Support Swift OpenGL Objects DSL
+
+```swift
+func main() {
+    // Build and compile our shader program
+    // -------------------------------------
+    let ourShader = Shader(vertexFile: "shader.vs", fragmentFile: "shader.frag")
+
+    // data
+    // --------------------
+    let vertices: [GLfloat] = [
+        // --- vertex--- //         // --- texture--- //
+        -0.5, -0.5, -0.5, 0.0, 0.0,
+        0.5, -0.5, -0.5, 1.0, 0.0,
+        0.5, 0.5, -0.5, 1.0, 1.0
+    ]
+
+    // create and configure VBO
+    // -------------------------
+    let vao = VAO {
+
+        // create and configure VBO
+        // ------------------------
+        let vbo = $0.createVBO(vertices: vertices, usage: GL_DYNAMIC_DRAW) {
+            let stride: GLsizei = 5
+            $0.vertexAttribPointer(index: 0, size: 3, stride: stride, offset: 0)
+            $0.vertexAttribPointer(index: 1, size: 2, stride: stride, offset: 3)
+        }
+    }
+
+    let texture2D_1 = Texture2D(format: GL_RGB, filePath: "container.png") {
+    }
+
+    let texture2D_2 = Texture2D(format: GL_RGBA, filePath: "awesomeface.png") {
+    }
+
+
+    // game looper
+    // --------------
+    while true {
+        // ... other code
+
+        // Render
+        // Clear the colorbuffer
+        glClearColor(red: 0.2, green: 0.3, blue: 0.3, alpha: 1.0)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+        // Activate shader
+        ourShader.use()
+
+        // setup textures
+        // --------------------
+        texture2D_1.glActiveBindTexture(index: 0) {
+            ourShader.setInt(name: "ourTexture1", value: 0)
+        }
+        texture2D_2.glActiveBindTexture(index: 1) {
+            ourShader.setInt(name: "ourTexture2", value: 1)
+        }
+
+        // draw sth
+        // ----------------
+        vao.bind {
+            let _: BoundScopeOfVAO = $0
+
+            // ... other code
+
+            glDrawArrays(GL_TRIANGLES, 0, 3)
+        }
+
+        // swap the screen buffers
+        // ------------------------
+        //glfwSwapBuffers(window)
+    }
+}
+```
+
 ## 2020-03-28
 
 - OpenGL 4.5 & OpenGLES 3.2
